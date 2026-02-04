@@ -4,6 +4,26 @@ Fine-tuning LLaMA 3.2-1B for toxicity detection using Supervised Fine-Tuning and
 
 **Constraints:** Single RTX 4070 (8GB) using 4-bit quantization + LoRA
 
+## Overview
+
+Content moderation is not binary. Different platforms need different thresholds. A kids' platform wants to catch everything; an adult platform wants to avoid false flags.
+
+This project trains a continuous toxicity scorer that supports multiple moderation policies via thresholding, without retraining:
+
+1. **SFT** teaches the task and concentrates probability mass onto "toxic" / "not toxic" labels
+2. **DPO** refines the ranking, optimizing the log-odds difference between preferred and rejected responses
+
+The model outputs a log-odds score rather than a hard classification, enabling flexible deployment across different policy regimes.
+
+Because RLHF changes model behavior asymmetrically, we rely on slice-based evaluation to understand how alignment affects specific linguistic phenomena rather than just aggregate metrics.
+
+## Dataset and Assumptions
+
+[Civil Comments](https://huggingface.co/datasets/google/civil_comments): 1.8M comments from news sites (2015-2017) with toxicity annotations (2018-2019). Each comment has a continuous toxicity score (0-1) representing the fraction of annotators who flagged it, rather than a hard ground-truth label. A threshold of 0.3 binarizes labels for training.
+
+The model learns an approximation of historical annotator judgments, not an objective notion of toxicity. Model behavior is shaped by the quality, source, and era of the training data.
+
+
 ## Results
 
 | Model | PR-AUC | ROC-AUC |
@@ -20,18 +40,13 @@ Fine-tuning LLaMA 3.2-1B for toxicity detection using Supervised Fine-Tuning and
 | 90%    | 17%  | 41% | 44% |
 | 80%    | 19%  | 52% | 55% |
 
-## Overview
+## Slice-Based Error Analysis
 
-Content moderation is not binary. Different platforms need different thresholds. A kids' platform wants to catch everything; an adult platform wants to avoid false flags.
+Aggregate metrics hide important behavioral differences. To understand how DPO affects specific linguistic patterns, we evaluate performance on targeted slices (profanity, ALL CAPS, laughter, quoted speech, length).
 
-This project trains a continuous toxicity scorer that supports multiple moderation policies via thresholding, without retraining:
+DPO does not uniformly shift model confidence. It remains conservative on stylistic signals associated with borderline toxicity (profanity, ALL CAPS, sarcastic laughter), while becoming more confident on short, unambiguous comments. This matches real-world moderation needs, where such cues often correlate with adversarial or ambiguous content.
 
-1. **SFT** teaches the task and concentrates probability mass onto "toxic" / "not toxic" labels
-2. **DPO** refines the ranking, optimizing the log-odds difference between preferred and rejected responses
 
-The model outputs a log-odds score rather than a hard classification, enabling flexible deployment across different policy regimes.
-
-Because RLHF changes model behavior asymmetrically, we rely on slice-based evaluation to understand how alignment affects specific linguistic phenomena rather than just aggregate metrics.
 
 ## Project Structure
 
