@@ -31,6 +31,8 @@ This project trains a continuous toxicity scorer that supports multiple moderati
 
 The model outputs a log-odds score rather than a hard classification, enabling flexible deployment across different policy regimes.
 
+Because RLHF changes model behavior asymmetrically, we rely on slice-based evaluation to understand how alignment affects specific linguistic phenomena rather than just aggregate metrics.
+
 ## Project Structure
 
 ```
