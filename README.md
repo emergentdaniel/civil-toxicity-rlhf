@@ -19,7 +19,7 @@ Because RLHF changes model behavior asymmetrically, we rely on slice-based evalu
 
 ## Dataset and Assumptions
 
-[Civil Comments](https://huggingface.co/datasets/google/civil_comments): 1.8M comments from news sites (2015-2017) with toxicity annotations (2018-2019). Each comment has a continuous toxicity score (0-1) representing the fraction of annotators who flagged it, rather than a hard ground-truth label. A threshold of 0.3 binarizes labels for training.
+[Civil Comments](https://huggingface.co/datasets/google/civil_comments): 1.8M comments from news sites (2015-2017) with toxicity annotations (2018-2019). Each comment has a continuous toxicity score (0-1) representing the fraction of annotators who flagged it rather than a hard ground-truth label. A threshold of 0.3 binarizes labels for training.
 
 The model learns an approximation of historical annotator judgments, not an objective notion of toxicity. Model behavior is shaped by the quality, source, and era of the training data.
 
