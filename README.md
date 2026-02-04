@@ -95,7 +95,7 @@ docker build -t civil-toxicity-rlhf .
 docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 ```
 
-## Key Design Decisions
+## Design Rationale & System Tradeoffs
 
 **PR-AUC over accuracy.** The dataset is 85% non-toxic. A model predicting "not toxic" for everything achieves 85% accuracy.
 
