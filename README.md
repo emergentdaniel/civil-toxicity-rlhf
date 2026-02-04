@@ -107,11 +107,6 @@ docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 
 **Containerization.** Experiments use a CUDA-enabled PyTorch Docker image for reproducibility across GPU environments. Dependencies are managed via pip to avoid conda-in-Docker complexity.
 
-## Dataset
-
-[Civil Comments](https://huggingface.co/datasets/google/civil_comments): 1.8M comments from news sites (2015-2017) with toxicity annotations (2018-2019). Each comment has a continuous toxicity score (0-1) representing annotator agreement.
-
-A threshold of 0.3 binarizes labels for training.
 
 ## Requirements
 
