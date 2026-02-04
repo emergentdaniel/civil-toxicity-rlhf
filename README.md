@@ -90,16 +90,6 @@ docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 
 **Containerization.** Experiments use a CUDA-enabled PyTorch Docker image for reproducibility across GPU environments. Dependencies are managed via pip to avoid conda-in-Docker complexity.
 
-## Deployment Considerations
-
-**Batch inference.** Score comments in batches for throughput rather than one at a time.
-
-**Caching.** Cache scores for identical comments since the model is deterministic.
-
-**Async pipeline.** Decouple scoring from blocking user actions for latency-sensitive applications.
-
-**Human review fallback.** Route ambiguous scores (near the threshold) to human review rather than forcing a binary decision.
-
 ## Dataset
 
 [Civil Comments](https://huggingface.co/datasets/google/civil_comments): 1.8M comments from news sites (2015-2017) with toxicity annotations (2018-2019). Each comment has a continuous toxicity score (0-1) representing annotator agreement.
