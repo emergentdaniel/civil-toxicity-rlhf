@@ -11,9 +11,9 @@ Content moderation is not binary. Different platforms need different thresholds.
 This project trains a continuous toxicity scorer that supports multiple moderation policies via thresholding, without retraining:
 
 1. **SFT** teaches the task and concentrates probability mass onto "toxic" / "not toxic" labels
-2. **DPO** refines the ranking, optimizing the log-odds difference between preferred and rejected responses
+2. **DPO** refines the ranking, optimizing the log-probably difference between preferred and rejected responses
 
-The model outputs a log-odds score rather than a hard classification, enabling flexible deployment across different policy regimes.
+The model outputs a log-probability difference score rather than a hard classification, enabling flexible deployment across different policy regimes.
 
 Because RLHF changes model behavior asymmetrically, we rely on slice-based evaluation to understand how DPO affects specific linguistic phenomena rather than just aggregate metrics.
 
