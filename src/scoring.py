@@ -664,39 +664,55 @@ def failure_analysis(df, threshold, n=5):
 # SLICE ANALYSIS
 # ============================================================
 
-def slice_analysis(df, threshold):
-    """
-    Compute precision/recall per slice at given threshold.
-    
-    Usage:
-        slices = slice_analysis(df, metrics['kid_safe_threshold'])
-        print(slices)
-    """
+def add_slices(df):
+    """Add slice columns for error analysis."""
     df = df.copy()
-    profanity = ['fuck', 'shit', 'damn', 'ass', 'bitch', 'hell']
-    df['has_profanity'] = df['text'].str.lower().str.contains('|'.join(profanity), regex=True)
+    
+    profanity_words = ['fuck', 'shit', 'damn', 'ass', 'bitch', 'hell', 'crap']
+    df['has_profanity'] = df['text'].str.lower().str.contains('|'.join(profanity_words), regex=True)
     df['has_quotes'] = df['text'].str.contains(r'["\'].*["\']', regex=True)
-    df['has_laughter'] = df['text'].str.lower().str.contains(r'\b(lol|lmao|haha|rofl)\b', regex=True)
+    df['has_laughter'] = df['text'].str.lower().str.contains(r'\b(?:lol|lmao|haha|hehe|rofl)\b', regex=True)
+    df['is_shouty'] = df['text'].apply(
+        lambda x: len(x) >= 10 and sum(c.isupper() for c in x) / max(len(x.replace(' ', '')), 1) > 0.5
+    )
     df['is_long'] = df['text'].str.len() > 500
     df['is_short'] = df['text'].str.len() < 50
     
-    y_pred = (df['score'].values >= threshold).astype(int)
+    return df
+
+def slice_analysis_comparison(df_sft, df_dpo, threshold_sft, threshold_dpo):
+    """Compare slice performance between SFT and DPO."""
+    df_sft = add_slices(df_sft)
+    df_dpo = add_slices(df_dpo)
+    
+    df_sft['pred'] = (df_sft['score'].values >= threshold_sft).astype(int)
+    df_dpo['pred'] = (df_dpo['score'].values >= threshold_dpo).astype(int)
+    
+    slices = ['has_profanity', 'has_quotes', 'has_laughter', 'is_shouty', 'is_long', 'is_short']
     
     results = []
-    for slice_name in ['has_profanity', 'has_quotes', 'has_laughter', 'is_long', 'is_short']:
-        slice_df = df[df[slice_name]]
-        if len(slice_df) < 10:
+    for slice_name in slices:
+        sft_slice = df_sft[df_sft[slice_name]]
+        dpo_slice = df_dpo[df_dpo[slice_name]]
+        
+        if len(sft_slice) < 10:
             continue
-        y_true = slice_df['true_label'].values
-        y_pred_slice = y_pred[df[slice_name].values]
+        
         results.append({
-            'slice': slice_name, 
-            'n': len(slice_df), 
-            'base_rate': y_true.mean(),
-            'precision': precision_score(y_true, y_pred_slice, zero_division=0),
-            'recall': recall_score(y_true, y_pred_slice, zero_division=0)
+            'slice': slice_name,
+            'n': len(sft_slice),
+            'base_rate': sft_slice['true_label'].mean(),
+            'sft_precision': precision_score(sft_slice['true_label'], sft_slice['pred'], zero_division=0),
+            'sft_recall': recall_score(sft_slice['true_label'], sft_slice['pred'], zero_division=0),
+            'dpo_precision': precision_score(dpo_slice['true_label'], dpo_slice['pred'], zero_division=0),
+            'dpo_recall': recall_score(dpo_slice['true_label'], dpo_slice['pred'], zero_division=0),
         })
-    return pd.DataFrame(results)
+    
+    results_df = pd.DataFrame(results)
+    results_df['precision_delta'] = results_df['dpo_precision'] - results_df['sft_precision']
+    results_df['recall_delta'] = results_df['dpo_recall'] - results_df['sft_recall']
+    
+    return results_df
 
 
 # ============================================================
