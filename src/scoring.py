@@ -33,12 +33,15 @@ Usage in notebook:
     )
 """
 
+from typing import Optional
+
 import torch
 import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
     precision_recall_curve, 
     roc_curve, 
@@ -48,6 +51,17 @@ from sklearn.metrics import (
     confusion_matrix
 )
 from tqdm import tqdm
+
+__all__ = [
+    'evaluate_model', 'compute_metrics', 'get_confusion_at_threshold',
+    'toxicity_score', 'get_label_probs',
+    'plot_top_token_probs', 'plot_all_curves', 'plot_curves_with_operating_points',
+    'plot_score_distributions', 'plot_all_calibration_curves',
+    'slice_analysis', 'slice_analysis_comparison', 'add_slices',
+    'failure_analysis', 'analyze_failure_probs',
+    'cost_analysis', 'compare_costs', 'find_biggest_changes',
+    'compare_operating_points', 'run_full_analysis',
+]
 
 # ============================================================
 # SCORING
@@ -98,7 +112,9 @@ def get_label_probs(model, tokenizer, prompt):
 # EVALUATION
 # ============================================================
 
-def evaluate_model(model, tokenizer, val_dataset, max_samples=None):
+def evaluate_model(
+    model, tokenizer, val_dataset, max_samples: Optional[int] = None
+) -> pd.DataFrame:
     """
     Score a model on validation set.
     
@@ -121,7 +137,11 @@ def evaluate_model(model, tokenizer, val_dataset, max_samples=None):
     return pd.DataFrame(results)
 
 
-def compute_metrics(df, target_recall=0.90, target_precision=0.90):
+def compute_metrics(
+    df: pd.DataFrame,
+    target_recall: float = 0.90,
+    target_precision: float = 0.90,
+) -> dict:
     """
     Compute PR-AUC, ROC-AUC, curves, and operating points.
     
@@ -190,7 +210,7 @@ def get_confusion_at_threshold(df, threshold):
 
 def get_summary_table(df_base, df_sft, df_dpo):
     """
-    Print a summary table with comparisons and confusion matirices.
+    Print a summary table with comparisons and confusion matrices.
     
     Args:
         df_base: DataFrame with base model scores
@@ -470,17 +490,18 @@ def plot_all_curves(metrics_base, metrics_sft, metrics_dpo=None):
     return fig
 
 
-def plot_score_distributions(df_base, df_sft, df_dpo):
+def plot_score_distributions(df_sft: pd.DataFrame, df_dpo: pd.DataFrame, df_base: Optional[pd.DataFrame] = None):
     """
     Plot score distributions and shift analysis.
     
     Usage:
-        fig = plot_score_distributions(df_base, df_sft, df_dpo)
+        fig = plot_score_distributions(df_sft, df_dpo, df_base)
     """
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
     
-    # Score distributions - all three models
-    axes[0].hist(df_base['score'], bins=50, alpha=0.5, label='Base', density=True)
+    # Score distributions
+    if df_base is not None:
+        axes[0].hist(df_base['score'], bins=50, alpha=0.5, label='Base', density=True)
     axes[0].hist(df_sft['score'], bins=50, alpha=0.5, label='SFT', density=True)
     axes[0].hist(df_dpo['score'], bins=50, alpha=0.5, label='SFT + DPO', density=True)
     axes[0].set_xlabel('Toxicity Score')
@@ -489,8 +510,10 @@ def plot_score_distributions(df_base, df_sft, df_dpo):
     axes[0].legend()
     
     # Score shift histogram (SFT → DPO)
-    merged = df_sft[['text', 'score']].merge(df_dpo[['text', 'score']], on='text', suffixes=('_sft', '_dpo'))
+    merged = df_sft[['text', 'true_label', 'score']].merge(
+        df_dpo[['text', 'score']], on='text', suffixes=('_sft', '_dpo'))
     merged['shift'] = merged['score_dpo'] - merged['score_sft']
+    
     axes[1].hist(merged['shift'], bins=50, color='purple', alpha=0.7)
     axes[1].axvline(0, color='red', linestyle='--', label='No change')
     axes[1].set_xlabel('Score Change (DPO - SFT)')
@@ -500,43 +523,28 @@ def plot_score_distributions(df_base, df_sft, df_dpo):
     axes[1].set_yscale('log')
     
     # Shift by true label
-    merged_labels = df_sft[['text', 'true_label', 'score']].merge(
-        df_dpo[['text', 'score']], on='text', suffixes=('_sft', '_dpo'))
-    merged_labels['shift'] = merged_labels['score_dpo'] - merged_labels['score_sft']
-    
-    toxic_shift = merged_labels[merged_labels['true_label'] == 1]['shift']
-    nontoxic_shift = merged_labels[merged_labels['true_label'] == 0]['shift']
+    toxic_shift = merged[merged['true_label'] == 1]['shift']
+    nontoxic_shift = merged[merged['true_label'] == 0]['shift']
     
     axes[2].boxplot([toxic_shift, nontoxic_shift], labels=['Toxic', 'Not Toxic'])
     axes[2].axhline(0, color='red', linestyle='--', alpha=0.5)
     axes[2].set_ylabel('Score Change (DPO - SFT)')
     axes[2].set_title('Score Shift by True Label')
 
-    merged = df_sft[['text', 'true_label', 'score']].merge(
-        df_dpo[['text', 'score']], on='text', suffixes=('_sft', '_dpo')
-    )
-    merged['score_diff'] = merged['score_dpo'] - merged['score_sft']
-
-    toxic = merged[merged['true_label'] == 1]['score_diff']
-    not_toxic = merged[merged['true_label'] == 0]['score_diff']
-
-    print(f"Mean shift for TOXIC comments:     {toxic.mean():+.4f}")
-    print(f"Mean shift for NOT TOXIC comments: {not_toxic.mean():+.4f}")
+    print(f"Mean shift for TOXIC comments:     {toxic_shift.mean():+.4f}")
+    print(f"Mean shift for NOT TOXIC comments: {nontoxic_shift.mean():+.4f}")
     print(f"\nIdeal: Toxic shifts positive, Not Toxic shifts negative")
-    
 
     plt.tight_layout()
     return fig
 
-def plot_calibration_curve(df, n_bins=10, title="Calibration Curve"):
+def plot_calibration_curve(df: pd.DataFrame, n_bins: int = 10, title: str = "Calibration Curve"):
     """
     Plot calibration curve - does predicted probability match actual frequency?
     
     Usage:
         fig = plot_calibration_curve(df_dpo, title="DPO Calibration")
     """
-    from sklearn.calibration import calibration_curve
-    
     # Convert log-odds score to probability
     probs = 1 / (1 + np.exp(-df['score'].values))  # sigmoid
     y_true = df['true_label'].values
@@ -570,8 +578,6 @@ def plot_all_calibration_curves(df_base, df_sft, df_dpo=None, n_bins=10):
     Usage:
         fig = plot_all_calibration_curves(df_base, df_sft, df_dpo)
     """
-    from sklearn.calibration import calibration_curve
-    
     fig, ax = plt.subplots(figsize=(6, 6))
     
     # Perfect calibration
@@ -627,16 +633,40 @@ def find_biggest_changes(df_sft, df_dpo, n=10):
 # FAILURE MODE ANALYSIS
 # ============================================================
 
-def failure_analysis(df, threshold, n=5):
+def failure_analysis(df: pd.DataFrame, threshold: float, n: int = 5, raw_dataset=None):
     """
     Find high-confidence errors: false positives and false negatives.
     
+    Args:
+        df: DataFrame with 'true_label', 'score', and 'text' columns
+        threshold: score threshold for classification
+        n: number of examples to show per category
+        raw_dataset: optional HuggingFace dataset for original toxicity scores
+    
     Usage:
-        fp, fn = failure_analysis(df_dpo, metrics_dpo['kid_safe_threshold'])
+        from datasets import load_dataset
+        raw = load_dataset('google/civil_comments', split='test')
+        fp, fn = failure_analysis(df_dpo, metrics_dpo['kid_safe_threshold'], raw_dataset=raw)
     """
     y_pred = (df['score'].values >= threshold).astype(int)
     df = df.copy()
     df['pred'] = y_pred
+    
+    # Build lookup dict for original scores
+    raw_lookup = {}
+    if raw_dataset is not None:
+        for ex in raw_dataset:
+            raw_lookup[ex['text']] = ex['toxicity']
+    
+    def get_orig_score(text):
+        if raw_dataset is None:
+            return "N/A"
+        if text in raw_lookup:
+            return f"{raw_lookup[text]:.2f}"
+        for raw_text, tox in raw_lookup.items():
+            if text in raw_text or raw_text in text:
+                return f"{tox:.2f}"
+        return "N/A"
     
     # False positives: predicted toxic, actually not toxic (high confidence wrong)
     false_positives = df[(df['true_label'] == 0) & (df['pred'] == 1)].nlargest(n, 'score')
@@ -650,12 +680,14 @@ def failure_analysis(df, threshold, n=5):
     
     print(f"\n--- FALSE POSITIVES (flagged but not toxic) ---")
     for _, row in false_positives.iterrows():
-        print(f"\nScore: {row['score']:.2f}")
+        orig = get_orig_score(row['text'])
+        print(f"\nModel Score: {row['score']:.2f} | Original Toxicity: {orig}")
         print(f"   {row['text'][:150]}...")
     
     print(f"\n--- FALSE NEGATIVES (missed toxic content) ---")
     for _, row in false_negatives.iterrows():
-        print(f"\nScore: {row['score']:.2f}")
+        orig = get_orig_score(row['text'])
+        print(f"\nModel Score: {row['score']:.2f} | Original Toxicity: {orig}")
         print(f"   {row['text'][:150]}...")
     
     return false_positives, false_negatives
@@ -679,6 +711,29 @@ def add_slices(df):
     df['is_short'] = df['text'].str.len() < 50
     
     return df
+
+def slice_analysis(df: pd.DataFrame, threshold: float) -> pd.DataFrame:
+    """Evaluate performance across slices for a single model."""
+    df = add_slices(df)
+    df['pred'] = (df['score'].values >= threshold).astype(int)
+    
+    slices = ['has_profanity', 'has_quotes', 'has_laughter', 'is_shouty', 'is_long', 'is_short']
+    
+    results = []
+    for slice_name in slices:
+        s = df[df[slice_name]]
+        if len(s) < 10:
+            continue
+        results.append({
+            'slice': slice_name,
+            'n': len(s),
+            'base_rate': s['true_label'].mean(),
+            'precision': precision_score(s['true_label'], s['pred'], zero_division=0),
+            'recall': recall_score(s['true_label'], s['pred'], zero_division=0),
+        })
+    
+    return pd.DataFrame(results)
+
 
 def slice_analysis_comparison(df_sft, df_dpo, threshold_sft, threshold_dpo):
     """Compare slice performance between SFT and DPO."""
