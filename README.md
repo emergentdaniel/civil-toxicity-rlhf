@@ -151,7 +151,7 @@ docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 
 ## Design Rationale & System Tradeoffs
 
-**Ranking vs. Classification.** The system outputs a continuous log-odds score rather than a binary label. This means a single model supports multiple policies (kid-safe, adult) via threshold adjustment, but it also means raw scores are not calibrated probabilities. SFT produces well-calibrated probabilities; DPO sacrifices that calibration to improve ranking quality. For deployment, scores should be treated as decision margins for thresholding, not as literal risk estimates.
+**Ranking vs. Classification.** The system outputs a continuous log-probability score rather than a binary label. This means a single model supports multiple policies (kid-safe, adult) via threshold adjustment, but it also means raw scores are not calibrated probabilities. SFT produces well-calibrated probabilities; DPO sacrifices that calibration to improve ranking quality. For deployment, scores should be treated as decision margins for thresholding, not as literal risk estimates.
 
 **Log-odds scoring.** DPO optimizes log-probability difference between responses. Using the same metric for evaluation aligns training and inference, and provides a natural confidence measure.
 
