@@ -490,12 +490,12 @@ def plot_all_curves(metrics_base, metrics_sft, metrics_dpo=None):
     return fig
 
 
-def plot_score_distributions(df_sft: pd.DataFrame, df_dpo: pd.DataFrame, df_base: Optional[pd.DataFrame] = None):
+def plot_score_distributions(df_sft: pd.DataFrame, df_dpo: pd.DataFrame, df_base: Optional[pd.DataFrame] = None, beta: Optional[float] = None):
     """
     Plot score distributions and shift analysis.
     
     Usage:
-        fig = plot_score_distributions(df_sft, df_dpo, df_base)
+        fig = plot_score_distributions(df_sft, df_dpo, df_base, beta=0.1)
     """
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
     
@@ -506,19 +506,18 @@ def plot_score_distributions(df_sft: pd.DataFrame, df_dpo: pd.DataFrame, df_base
     axes[0].hist(df_dpo['score'], bins=50, alpha=0.5, label='SFT + DPO', density=True)
     axes[0].set_xlabel('Toxicity Score')
     axes[0].set_ylabel('Density')
-    axes[0].set_title('Score Distributions')
+    axes[0].set_title(f'Score Distributions (beta={beta})')
     axes[0].legend()
     
     # Score shift histogram (SFT → DPO)
-    merged = df_sft[['text', 'true_label', 'score']].merge(
-        df_dpo[['text', 'score']], on='text', suffixes=('_sft', '_dpo'))
+    merged = df_sft[['text', 'true_label', 'score']].merge(df_dpo[['text', 'score']], on='text', suffixes=('_sft', '_dpo'))
     merged['shift'] = merged['score_dpo'] - merged['score_sft']
     
     axes[1].hist(merged['shift'], bins=50, color='purple', alpha=0.7)
     axes[1].axvline(0, color='red', linestyle='--', label='No change')
     axes[1].set_xlabel('Score Change (DPO - SFT)')
-    axes[1].set_ylabel('Count')
-    axes[1].set_title('How DPO Shifted Predictions')
+    axes[1].set_ylabel('ln(Count)')
+    axes[1].set_title(f'How DPO Shifted Predictions (beta={beta})')
     axes[1].legend()
     axes[1].set_yscale('log')
     
