@@ -121,7 +121,7 @@ Checkpoints and evaluation results are stored outside the repo in `../civil-toxi
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/civil-toxicity-rlhf.git
+git clone https://github.com/emergentdaniel/civil-toxicity-rlhf.git
 cd civil-toxicity-rlhf
 pip install -r requirements.txt
 ```
@@ -151,16 +151,21 @@ docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 
 ## Design Rationale & System Tradeoffs
 
-**PR-AUC over accuracy.** The dataset is 85% non-toxic. A model predicting "not toxic" for everything achieves 85% accuracy.
+**Ranking vs. Classification.** The system outputs a continuous log-odds score rather than a binary label. This means a single model supports multiple policies (kid-safe, adult) via threshold adjustment, but it also means raw scores are not calibrated probabilities. SFT produces well-calibrated probabilities; DPO sacrifices that calibration to improve ranking quality. For deployment, scores should be treated as decision margins for thresholding, not as literal risk estimates.
 
 **Log-odds scoring.** DPO optimizes log-probability difference between responses. Using the same metric for evaluation aligns training and inference, and provides a natural confidence measure.
 
-**Memory management.** Training on 8GB VRAM requires explicit cache clearing between model loads, 4-bit NF4 quantization with double quantization, and gradient accumulation (effective batch size 16 with batch size 1).
+**Memory management.** Training on 8GB VRAM requires 4-bit NF4 quantization (chosen over FP4 because model weights are approximately Gaussian and NF4 has higher resolution near zero), LoRA rank 16 on attention projections, gradient accumulation (effective batch size 16 with per-device batch size 1), and explicit cache clearing between model loads. Evaluation runs in float16 without quantization, using ~5.5GB VRAM.
 
 **Modular evaluation.** `src/scoring.py` separates evaluation logic from the notebook, making it reusable and testable.
 
 **Containerization.** Experiments use a CUDA-enabled PyTorch Docker image for reproducibility across GPU environments. Dependencies are managed via pip to avoid conda-in-Docker complexity.
 
+## Future Work
+
+- Beta sweep analysis across DPO hyperparameters
+- Multi-label toxicity scoring (threat, insult, obscenity) via weighted scores
+- Comparison against a classification head baseline
 
 ## Requirements
 
@@ -168,7 +173,7 @@ docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 - PyTorch 2.5+
 - CUDA 12.1+
 - 8GB VRAM (uses 4-6GB during training)
-- About 2 hours for training + ~3 hours for evaluation on RTX 4070
+- About ~2 hours for training + ~3 hours for evaluation on RTX 4070
 
 ## License
 
