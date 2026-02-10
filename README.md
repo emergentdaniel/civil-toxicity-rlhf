@@ -6,7 +6,7 @@ A second-stage moderation system that uses an RLHF-trained scorer and explicit d
 
 Content moderation decisions have asymmetric costs. Missed toxicity causes user harm; false flags erode trust and inflate review queues. A single accuracy number cannot capture this tradeoff because different platforms weigh these errors differently.
 
-This system produces a continuous risk score for each comment, then applies an explicit decision policy that maps scores to actions. The score ranks risk; the policy decides what to do about it. Separating these two concerns means a single model supports multiple operating modes—from aggressive filtering to permissive defaults—without retraining.
+This system produces a continuous risk score for each comment, then applies an explicit decision policy that maps scores to actions. The score ranks risk; the policy decides what to do about it. Separating these two concerns means a single model supports multiple operating modes—from aggressive filtering to permissive defaults, without retraining.
 
 The non-trivial part is not building the scorer. It is designing evaluation around operational constraints (review budgets, safety ceilings) rather than aggregate metrics, and showing where model improvements actually change system behavior versus where they don't.
 
@@ -22,7 +22,7 @@ All traffic → Keyword/regex filters → Lightweight classifier → This model 
                                                                                  Human reviewer
 ```
 
-The model sees pre-filtered traffic, not raw volume. An LLM-based scorer is acceptable at this stage because volume is reduced and the comments that reach it are the ones where context matters—sarcasm, quoted speech, borderline insults—which simpler models get wrong.
+The model sees pre-filtered traffic, not raw volume. An LLM-based scorer is acceptable at this stage because volume is reduced and the comments that reach it are the ones where context matters—sarcasm, quoted speech, borderline insults which simpler models get wrong.
 
 Three possible outcomes per comment:
 
@@ -54,7 +54,7 @@ Two parameters control the entire system: the labeling threshold used during tra
 
 **Training pipeline:**
 
-1. **SFT** teaches the output format. After SFT, probability mass concentrates on two tokens ("toxic" / "not toxic") such that `P("toxic"|x) + P("not toxic"|x) ≈ 1`. This is not explicitly enforced—it emerges from training on binary labels. The model now behaves as a binary classifier whose log-probability difference approximates log-odds.
+1. **SFT** teaches the output format. After SFT, probability mass concentrates on two tokens ("toxic" / "not toxic") such that `P("toxic"|x) + P("not toxic"|x) ≈ 1`. This is not explicitly enforced, it emerges from training on binary labels. The model now behaves as a binary classifier whose log-probability difference approximates log-odds.
 
 2. **DPO** refines the ranking. It optimizes the log-probability difference between preferred and rejected responses, which is the same quantity used for scoring at inference. Without SFT first, DPO would waste capacity learning the output format instead of refining decision margins.
 
@@ -128,7 +128,7 @@ Illustrative estimates for a second-stage volume of 250,000 comments/day at $0.1
 | Default | 246,081 | 3,919 | $13.5M–$35.9M | 2.00% |
 | Permissive | 247,912 | 2,088 | $13.6M–$36.2M | 4.96% |
 
-These are upper-bound estimates—they assume all escalated volume would otherwise require human review and that the second-stage scorer is the only automated layer. Real savings depend on the existing pipeline and the marginal cost of adding this component versus alternatives (e.g., a classification head, which would be cheaper to serve).
+These are upper-bound estimates. They assume all escalated volume would otherwise require human review and that the second-stage scorer is the only automated layer. Real savings depend on the existing pipeline and the marginal cost of adding this component versus alternatives (e.g., a classification head, which would be cheaper to serve).
 
 The relevant comparison is not "model vs. no model" but "model vs. the next-cheapest option that meets the same safety bound." This project does not yet include that comparison (see Design Tradeoffs).
 
