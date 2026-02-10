@@ -6,7 +6,7 @@ A second-stage moderation system that uses an RLHF-trained scorer and explicit d
 
 Content moderation decisions have asymmetric costs. Missed toxicity causes user harm; false flags erode trust and inflate review queues. A single accuracy number cannot capture this tradeoff because different platforms weigh these errors differently.
 
-This system produces a continuous risk score for each comment, then applies an explicit decision policy that maps scores to actions. The score ranks risk; the policy decides what to do about it. Separating these two concerns means a single model supports multiple operating modes—from aggressive filtering to permissive defaults, without retraining.
+This system produces a continuous risk score for each comment, then applies an explicit decision policy that maps scores to actions. The score ranks risk; the policy decides what to do about it. Separating these two concerns means a single model supports multiple operating modes: from aggressive filtering to permissive defaults without retraining.
 
 The non-trivial part is not building the scorer. It is designing evaluation around operational constraints (review budgets, safety ceilings) rather than aggregate metrics, and showing where model improvements actually change system behavior versus where they don't.
 
@@ -60,11 +60,11 @@ Two parameters control the entire system: the labeling threshold used during tra
 
 **Output:** `score = log P("toxic"|x) − log P("not toxic"|x)`. Positive = toxic, negative = not toxic, magnitude = decision margin.
 
-SFT produces well-calibrated probabilities (expected calibration error is low). DPO sacrifices calibration for better ranking—predictions concentrate near P ≈ 0 and P ≈ 1 with little in between. This is acceptable for thresholding but means scores should be treated as decision margins, not literal risk estimates.
+SFT produces well-calibrated probabilities (expected calibration error is low). DPO sacrifices calibration for better ranking. Predictions concentrate near P ≈ 0 and P ≈ 1 with little in between. This is acceptable for thresholding but means scores should be treated as decision margins, not literal risk estimates.
 
 Hardware constraints required 4-bit NF4 quantization (NF4 over FP4 because model weights are approximately Gaussian, giving NF4 higher effective resolution near zero), LoRA rank 16 on attention projections, and gradient accumulation to simulate batch size 16 from per-device batch size 1. Evaluation runs in float16 without quantization (~5.5GB VRAM). Full training details are in the [notebook](rlhf_content_moderation.ipynb).
 
-**Dataset:** [Civil Comments](https://huggingface.co/datasets/google/civil_comments) — 1.8M news-site comments (2015–2017) with crowdsourced toxicity annotations (2018–2019). Each label is the fraction of annotators who flagged the comment, not a ground-truth determination. The model learns an approximation of historical annotator judgment, shaped by the source, era, and biases of that annotation pool.
+**Dataset:** [Civil Comments](https://huggingface.co/datasets/google/civil_comments): 1.8M news-site comments (2015-2017) with crowdsourced toxicity annotations (2018-2019). Each label is the fraction of annotators who flagged the comment, not a ground-truth determination. The model learns an approximation of historical annotator judgment, shaped by the source, era, and biases of that annotation pool.
 
 ## Evaluation Summary
 
@@ -95,7 +95,7 @@ The platform can review a fixed number of comments per day. The model triages in
 
 DPO misses fewer toxic items at every budget level. At 10% review budget, bootstrap resampling (n=300) shows DPO outperforms SFT in 99% of resamples (median reduction: 175 fewer missed toxic items, 95% CI: [14, 320]).
 
-Cost-sensitive analysis across FN:FP ratios shows DPO reduces expected cost at every operating point, with the largest reduction (4.7%) at a 5:1 ratio—the regime where policy decisions hinge on fine-grained ranking of borderline cases. At extreme ratios, thresholds are dominated by policy constraints and model ordering matters less.
+Cost-sensitive analysis across FN:FP ratios shows DPO reduces expected cost at every operating point, with the largest reduction (4.7%) at a 5:1 ratio the regime where policy decisions hinge on fine-grained ranking of borderline cases. At extreme ratios, thresholds are dominated by policy constraints and model ordering matters less.
 
 ### Risk-Bounded: Fixed Safety Requirements
 
@@ -210,7 +210,7 @@ docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 ## TL;DR
 
 - **Problem owned:** reducing human review load for content moderation while bounding false-negative risk under explicit operational constraints.
-- **Decision the system makes:** auto-allow, auto-block, or escalate to a human—controlled by two auditable thresholds that define the platform's risk tolerance.
+- **Decision the system makes:** auto-allow, auto-block, or escalate to a human. Controlled by two auditable thresholds that define the platform's risk tolerance.
 - **Tradeoff accepted:** DPO improves safety-per-reviewer when review capacity is the bottleneck, but adds near-zero value when a safety ceiling is the binding constraint. The model also sacrifices probability calibration for better ranking, which is acceptable for thresholding but limits downstream use as a risk estimator.
 
 ## License
