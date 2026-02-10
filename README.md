@@ -22,7 +22,7 @@ All traffic → Keyword/regex filters → Lightweight classifier → This model 
                                                                                  Human reviewer
 ```
 
-The model sees pre-filtered traffic, not raw volume. An LLM-based scorer is acceptable at this stage because volume is reduced and the comments that reach it are the ones where context matters—sarcasm, quoted speech, borderline insults which simpler models get wrong.
+The model sees pre-filtered traffic, not raw volume. An LLM-based scorer is acceptable at this stage because volume is reduced and the comments that reach it are the ones where context matters: sarcasm, quoted speech, borderline insults which simpler models get wrong.
 
 Three possible outcomes per comment:
 
@@ -54,9 +54,9 @@ Two parameters control the entire system: the labeling threshold used during tra
 
 **Training pipeline:**
 
-1. **SFT** teaches the output format. After SFT, probability mass concentrates on two tokens ("toxic" / "not toxic") such that `P("toxic"|x) + P("not toxic"|x) ≈ 1`. This is not explicitly enforced, it emerges from training on binary labels. The model now behaves as a binary classifier whose log-probability difference approximates log-odds.
+1. **SFT** teaches the output format. After SFT, probability mass concentrates on two tokens ("toxic" / "not toxic") such that `P("toxic"|x) + P("not toxic"|x) ≈ 1`. This is not explicitly enforced, it emerges from training on binary labels. The model at this stage behaves as a binary classifier whose log-probability difference approximates log-odds.
 
-2. **DPO** refines the ranking. It optimizes the log-probability difference between preferred and rejected responses, which is the same quantity used for scoring at inference. Without SFT first, DPO would waste capacity learning the output format instead of refining decision margins.
+2. **DPO** refines the ranking. It optimizes the log-probability difference between preferred and rejected responses, which is the same quantity used for scoring at inference. Without SFT first, DPO would waste capacity learning the output format instead of refining decision margins. This turns what was approximately a classifier into a ranker, making log-probability difference a natural scoring function.
 
 **Output:** `score = log P("toxic"|x) − log P("not toxic"|x)`. Positive = toxic, negative = not toxic, magnitude = decision margin.
 
