@@ -6,7 +6,7 @@ A second-stage moderation system that uses an RLHF-trained scorer and explicit d
 
 Content moderation decisions have asymmetric costs. Missed toxicity causes user harm; false flags erode trust and inflate review queues. A single accuracy number cannot capture this tradeoff because different platforms weigh these errors differently.
 
-This system produces a continuous risk score for each comment, then applies an explicit decision policy that maps scores to actions. The score ranks risk; the policy decides what to do about it. Separating these two concerns means a single model supports multiple operating modes—from aggressive filtering to permissive defaults, without retraining.
+This system produces a continuous risk score for each comment, then applies an explicit decision policy that maps scores to actions. The score ranks risk; the policy decides what to do about it. Separating these two concerns means a single model supports multiple operating modes: from aggressive filtering to permissive defaults, without retraining.
 
 The non-trivial part is not building the scorer. It is designing evaluation around operational constraints (review budgets, safety ceilings) rather than aggregate metrics, and showing where model improvements actually change system behavior versus where they don't.
 
@@ -22,7 +22,7 @@ All traffic → Keyword/regex filters → Lightweight classifier → This model 
                                                                                  Human reviewer
 ```
 
-The model sees pre-filtered traffic, not raw volume. An LLM-based scorer is acceptable at this stage because volume is reduced and the comments that reach it are the ones where context matters—sarcasm, quoted speech, borderline insults which simpler models get wrong.
+The model sees pre-filtered traffic, not raw volume. An LLM-based scorer is acceptable at this stage because volume is reduced and the comments that reach it are the ones where context matters: sarcasm, quoted speech, borderline insults which simpler models get wrong.
 
 Three possible outcomes per comment:
 
@@ -60,11 +60,11 @@ Two parameters control the entire system: the labeling threshold used during tra
 
 **Output:** `score = log P("toxic"|x) − log P("not toxic"|x)`. Positive = toxic, negative = not toxic, magnitude = decision margin.
 
-SFT produces well-calibrated probabilities (expected calibration error is low). DPO sacrifices calibration for better ranking—predictions concentrate near P ≈ 0 and P ≈ 1 with little in between. This is acceptable for thresholding but means scores should be treated as decision margins, not literal risk estimates.
+SFT produces well-calibrated probabilities (expected calibration error is low). DPO sacrifices calibration for better ranking. Predictions concentrate near P ≈ 0 and P ≈ 1 with little in between. This is acceptable for thresholding but means scores should be treated as decision margins, not literal risk estimates.
 
 Hardware constraints required 4-bit NF4 quantization (NF4 over FP4 because model weights are approximately Gaussian, giving NF4 higher effective resolution near zero), LoRA rank 16 on attention projections, and gradient accumulation to simulate batch size 16 from per-device batch size 1. Evaluation runs in float16 without quantization (~5.5GB VRAM). Full training details are in the [notebook](rlhf_content_moderation.ipynb).
 
-**Dataset:** [Civil Comments](https://huggingface.co/datasets/google/civil_comments) — 1.8M news-site comments (2015–2017) with crowdsourced toxicity annotations (2018–2019). Each label is the fraction of annotators who flagged the comment, not a ground-truth determination. The model learns an approximation of historical annotator judgment, shaped by the source, era, and biases of that annotation pool.
+**Dataset:** [Civil Comments](https://huggingface.co/datasets/google/civil_comments): 1.8M news-site comments (2015–2017) with crowdsourced toxicity annotations (2018–2019). Each label is the fraction of annotators who flagged the comment, not a ground-truth determination. The model learns an approximation of historical annotator judgment, shaped by the source, era, and biases of that annotation pool.
 
 ## Evaluation Summary
 
@@ -107,7 +107,7 @@ The constraints flip. Safety is fixed; the question is how much content the syst
 | Default (≤2%) | 98.3% | 98.4% | +0.1pp | 1.95% | 2.00% |
 | Permissive (≤5%) | 99.2% | 99.2% | −0.0pp | 4.90% | 4.96% |
 
-Under fixed safety ceilings, DPO adds ≤ 0.1 percentage points of automation—effectively zero. Both models auto-resolve 97–99% of content. This is not a failure of DPO; it is a property of the constraint. When operating in the extreme tails of the score distribution, both models have sufficient separation. DPO's ranking improvements live near the decision boundary, which only matters when the boundary is the binding constraint.
+Under fixed safety ceilings, DPO adds ≤ 0.1 percentage points of automation, effectively zero. Both models auto-resolve 97–99% of content. This is not a failure of DPO; it is a property of the constraint. When operating in the extreme tails of the score distribution, both models have sufficient separation. DPO's ranking improvements live near the decision boundary, which only matters when the boundary is the binding constraint.
 
 ### What This Means
 
@@ -158,7 +158,7 @@ This system does not learn online. The model is trained offline and deployed as 
 
 **Missing baseline.** A classification head on the same base model would be cheaper to serve (no autoregressive generation) and might achieve comparable ranking quality. This project chose log-probability scoring because it aligns training and inference objectives for DPO, but the cost-performance tradeoff against a classification head is not yet quantified.
 
-**Slice coverage.** DPO changes behavior asymmetrically: it increases confidence on short comments and quoted speech (reducing false positives) but stays cautious on profanity, ALL CAPS, and sarcastic laughter (no confidence gain even when benign). Recall is stable across all tested slices, but the slice set is not exhaustive—adversarial content, code-switching, and non-English text are not covered.
+**Slice coverage.** DPO changes behavior asymmetrically: it increases confidence on short comments and quoted speech (reducing false positives) but stays cautious on profanity, ALL CAPS, and sarcastic laughter (no confidence gain even when benign). Recall is stable across all tested slices, but the slice set is not exhaustive. Adversarial content, code-switching, and non-English text are not covered.
 
 ## Project Structure and Reproducibility
 
@@ -210,7 +210,7 @@ docker run --gpus all -p 8888:8888 civil-toxicity-rlhf
 ## TL;DR
 
 - **Problem owned:** reducing human review load for content moderation while bounding false-negative risk under explicit operational constraints.
-- **Decision the system makes:** auto-allow, auto-block, or escalate to a human—controlled by two auditable thresholds that define the platform's risk tolerance.
+- **Decision the system makes:** auto-allow, auto-block, or escalate to a human. Controlled by two auditable thresholds that define the platform's risk tolerance.
 - **Tradeoff accepted:** DPO improves safety-per-reviewer when review capacity is the bottleneck, but adds near-zero value when a safety ceiling is the binding constraint. The model also sacrifices probability calibration for better ranking, which is acceptable for thresholding but limits downstream use as a risk estimator.
 
 ## License
