@@ -9,6 +9,8 @@
 ![Status](https://img.shields.io/badge/status-Research--Complete-brightgreen)
 ![Evaluation](https://img.shields.io/badge/Evaluation-Constraint--Aware-blueviolet)
 
+![Results](figures/readme_hero.png)
+*Figures trained with β=0.02 and tested on 97,320 samples.*
 
 A second-stage moderation system that uses an RLHF-trained scorer and explicit decision policies to reduce human review load while bounding false-negative risk.
 
