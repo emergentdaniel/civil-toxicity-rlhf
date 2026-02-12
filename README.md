@@ -1,5 +1,15 @@
 # Content Moderation with RLHF (SFT + DPO)
 
+![Python](https://img.shields.io/badge/python-3.10-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.5.1-red)
+![Transformers](https://img.shields.io/badge/Transformers-4.57.6-yellow)
+![CUDA](https://img.shields.io/badge/CUDA-11.8-green)
+![GPU](https://img.shields.io/badge/GPU-RTX%204070-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-Research--Complete-brightgreen)
+![Evaluation](https://img.shields.io/badge/Evaluation-Constraint--Aware-blueviolet)
+
+
 A second-stage moderation system that uses an RLHF-trained scorer and explicit decision policies to reduce human review load while bounding false-negative risk.
 
 ## What This System Does
